@@ -1,9 +1,9 @@
 library(rjags)
 load.module("glm")
 library(tidyverse)
-setwd("~/Desktop/STAT-431-Final-Project")
+# setwd("~/Desktop/STAT-431-Final-Project")
 
-data <- read_csv("04_model_fit/sba_clean_full.csv")
+data <- read_csv("00_data/sba_clean_50k.csv")
 
 # subset the data by first 10000 rows
 data <- data[1:10000,]
@@ -69,6 +69,8 @@ model <- jags.model("04_model_fit/model.txt", data = d, inits = inits, n.chains 
 
 x <- coda.samples(model, variable.names = c("beta", "alpha_bank", "alpha_state", "alpha_sector", "sigma_sq_bank", "sigma_sq_state", "sigma_sq_sector"),
                         n.iter = 20000)
+
+saveRDS(x, "04_model_fit/samples.rds")
 
 # Convergence Check
 
