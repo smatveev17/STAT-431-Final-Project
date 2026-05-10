@@ -65,13 +65,13 @@ b0 <- qlogis(mean(df_model$MIS_Status))   # ≈ logit of overall default rate
 
 inits <- list(
   list(beta = b0,
-       tau_sq_bank = 4, tau_sq_state = 4, tau_sq_sector = 4,    # sigma ≈ 0.5
+       sigma_bank = 0.5, sigma_state = 0.5, sigma_sector = 0.5,
        .RNG.name = "base::Wichmann-Hill", .RNG.seed = 123),
   list(beta = b0 + 1,
-       tau_sq_bank = 1, tau_sq_state = 1, tau_sq_sector = 1,    # sigma ≈ 1
+       sigma_bank = 1, sigma_state = 1, sigma_sector = 1,
        .RNG.name = "base::Wichmann-Hill", .RNG.seed = 431),
   list(beta = b0 - 1,
-       tau_sq_bank = 100, tau_sq_state = 100, tau_sq_sector = 100,  # sigma ≈ 0.1
+       sigma_bank = 0.1, sigma_state = 0.1, sigma_sector = 0.1,
        .RNG.name = "base::Wichmann-Hill", .RNG.seed = 6769)
 )
 
@@ -82,6 +82,8 @@ system.time({
 system.time({
   x <- coda.samples(model,
                     variable.names = c("beta", "alpha_bank", "alpha_state", "alpha_sector",
+                                       "sigma_bank", "sigma_state", "sigma_sector",
+                                       "tau_sq_bank", "tau_sq_state", "tau_sq_sector",
                                        "sigma_sq_bank", "sigma_sq_state", "sigma_sq_sector"), n.iter = 20000)
 })
 

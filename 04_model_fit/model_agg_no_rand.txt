@@ -1,0 +1,11 @@
+model {
+  for(i in 1:N) {
+
+  }
+
+  tausq.y ~ dgamma(0.001, 0.001)
+  sigma.y <- 1 / sqrt(tausq.y)
+
+  beta1 ~ dnorm(0.0, 1.0E-6)
+  beta2 ~ dnorm(0.0, 1.0E-6)
+}
