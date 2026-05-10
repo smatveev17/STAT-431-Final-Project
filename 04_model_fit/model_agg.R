@@ -4,30 +4,31 @@ library(tidyverse)
 # setwd("~/Desktop/STAT-431-Final-Project")
 
 fixed_effect_terms <- c(
-  "NewExist_f", "UrbanRural_f", "RevLineCr_f",
-  "LowDoc_f", "IsFranchise", "GFC_Period"
+  # "NewExist_f", "RevLineCr_f",
+  # "LowDoc_f", "IsFranchise", 
+  "GFC_Period", "UrbanRural_f"
 )
 
-data <- read_csv("00_data/sba_clean_50k.csv", show_col_types = FALSE) %>%
-  slice_head(n = 10000)
+data <- read_csv("00_data/cleaned_smaller_subsets/train_50k_subset.csv", show_col_types = FALSE)
 
 bank_groups <- data %>%
   count(Bank, name = "n_loans") %>%
   arrange(desc(n_loans), Bank) %>%
   mutate(
     Bank_group = case_when(
-      row_number() <= 20 ~ 1L,
-      row_number() <= 500 ~ 2L,
-      TRUE ~ 3L
-    )
+      row_number() <= 8 ~ row_number(),
+      row_number() <= 40 ~ 9L,
+      TRUE ~ 10L
+    ),
   ) %>%
-  select(Bank, Bank_group)
+  select(Bank, Bank_group, n_loans)
 
 df_model <- data %>%
-  select(MIS_Status, Bank, State, NAICS_sector, all_of(fixed_effect_terms)) %>%
+  select(PaidInFull, Bank, State, NAICS_sector, all_of(fixed_effect_terms)) %>%
   left_join(bank_groups, by = "Bank") %>%
   transmute(
-    MIS_Status = as.integer(MIS_Status == "CHGOFF"),
+    # MIS_Status = as.integer(MIS_Status == "CHGOFF"),
+    PaidInFull = as.integer(PaidInFull),
     Bank_group,
     State = as.integer(factor(State)),
     NAICS_sector = as.integer(factor(NAICS_sector)),
@@ -36,11 +37,11 @@ df_model <- data %>%
 
 df_agg_random <- df_model %>%
   group_by(Bank_group, State, NAICS_sector) %>%
-  summarise(y = sum(MIS_Status), n = n(), .groups = "drop")
+  summarise(y = sum(PaidInFull), n = n(), .groups = "drop")
 
 df_agg_fixed <- df_model %>%
   group_by(Bank_group, State, NAICS_sector, across(all_of(fixed_effect_terms))) %>%
-  summarise(y = sum(MIS_Status), n = n(), .groups = "drop")
+  summarise(y = sum(PaidInFull), n = n(), .groups = "drop")
 
 X_fixed <- model.matrix(reformulate(fixed_effect_terms), data = df_agg_fixed)
 
@@ -78,7 +79,7 @@ d_fixed <- make_data(df_agg_fixed, X_fixed)
 model_data <- list(random = d_random, fixed = d_fixed)
 
 # Sensible inits centered on logit of mean default rate, overdispersed for Gelman-Rubin
-b0 <- qlogis(mean(df_model$MIS_Status))   # ≈ logit of overall default rate
+b0 <- qlogis(mean(df_model$PaidInFull))   # ≈ logit of overall default rate
 
 make_inits <- function(J, beta_start, fixed_effect_start, sigma_start, seed) {
   list(
