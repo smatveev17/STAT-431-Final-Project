@@ -1,0 +1,38 @@
+model {
+  for (i in 1:N) {
+    y[i] ~ dbin(p[i], n[i])
+    logit(p[i]) <- beta[1] + alpha_bank[bank[i]] + alpha_state[state[i]] + alpha_sector[sector[i]]
+    
+    ytilde[i] ~ dbin(p[i], n[i])
+  }
+
+  # Priors
+  for (j in 1:J) {
+    beta[j] ~ dnorm(0, .001)
+  }
+
+  # Random effects for bank
+  for (b in 1:B) {
+    alpha_bank[b] ~ dnorm(0, tau_sq_bank)
+  }
+  # Random effects for state
+  for (s in 1:S) {
+    alpha_state[s] ~ dnorm(0, tau_sq_state)
+  }
+  # Random effects for sector
+  for (c in 1:C) {
+    alpha_sector[c] ~ dnorm(0, tau_sq_sector)
+  }
+
+  sigma_bank   ~ dexp(0.001)
+  sigma_state  ~ dexp(0.001)
+  sigma_sector ~ dexp(0.001)
+
+  tau_sq_bank   <- 1 / pow(sigma_bank, 2)
+  tau_sq_state  <- 1 / pow(sigma_state, 2)
+  tau_sq_sector <- 1 / pow(sigma_sector, 2)
+
+  sigma_sq_bank   <- pow(sigma_bank, 2)
+  sigma_sq_state  <- pow(sigma_state, 2)
+  sigma_sq_sector <- pow(sigma_sector, 2)
+}
