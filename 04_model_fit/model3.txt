@@ -1,0 +1,35 @@
+model {
+  for (i in 1:N) {
+    # Likelihood
+    y[i] ~ dbin(p[i], n[i])
+    
+    logit(p[i]) <- beta[1] +
+                   beta_bank[bank[i]] + 
+                   beta_state[state[i]] + 
+                   beta_sector[sector[i]]
+    
+    # Predicted values for model checking
+    ytilde[i] ~ dbin(p[i], n[i])
+  }
+
+  # Fixed Effect Priors (Independent/No-Pooling)
+  
+  # Intercept
+  beta[1] ~ dnorm(0, 0.001)
+  
+  # Bank levels
+  for (b in 1:B) {
+    beta_bank[b] ~ dnorm(0, 0.001)
+  }
+
+  # State levels
+  for (s in 1:S) {
+    beta_state[s] ~ dnorm(0, 0.001)
+  }
+
+  # Sector levels
+  for (k in 1:C) {
+    beta_sector[k] ~ dnorm(0, 0.001)
+  }
+  
+}
