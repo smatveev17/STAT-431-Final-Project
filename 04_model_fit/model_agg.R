@@ -133,13 +133,16 @@ system.time({
   x_random <- coda.samples(model_random, variable.names = monitored_params, n.iter = 20000)
 })
 
-system.time({
-  x_fixed <- coda.samples(model_fixed, variable.names = monitored_params, n.iter = 20000)
-})
+# system.time({
+#   x_fixed <- coda.samples(model_fixed, variable.names = monitored_params, n.iter = 20000)
+# })
 
 
-saveRDS(x_random, "04_model_fit/saved_samples/x_random_0508.rds")
-saveRDS(x_fixed, "04_model_fit/saved_samples/x_fixed_0508.rds")
+saveRDS(x_random, "04_model_fit/saved_samples/x_random_0510.rds")
+# saveRDS(x_fixed, "04_model_fit/saved_samples/x_fixed_0508.rds")
+
+
+s <- as.tibble(summary(x_random)$statistics, rownames = "parameter")
 
 # Convergence Check
 beta_lookup_fixed
@@ -153,17 +156,65 @@ params_to_check <- function(x) {
 
 # get trace plots only
 plot(x_random[, params_to_check(x_random)], trace = TRUE, ask = TRUE)
-plot(x_fixed[, params_to_check(x_fixed)], trace = TRUE, ask = TRUE)
+# plot(x_fixed[, params_to_check(x_fixed)], trace = TRUE, ask = TRUE)
 
 gelman.diag(x_random[, params_to_check(x_random)], autoburnin = FALSE, multivariate = FALSE)
-gelman.diag(x_fixed[, params_to_check(x_fixed)], autoburnin = FALSE, multivariate = FALSE)
+# gelman.diag(x_fixed[, params_to_check(x_fixed)], autoburnin = FALSE, multivariate = FALSE)
 
 gelman.plot(x_random[, params_to_check(x_random)], autoburnin = FALSE, ask = TRUE)
-gelman.plot(x_fixed[, params_to_check(x_fixed)], autoburnin = FALSE, ask = TRUE)
+# gelman.plot(x_fixed[, params_to_check(x_fixed)], autoburnin = FALSE, ask = TRUE)
 
 # Autocorrelation check
 autocorr.plot(x_random[, params_to_check(x_random)], ask = TRUE)
-autocorr.plot(x_fixed[, params_to_check(x_fixed)], ask = TRUE)
+# autocorr.plot(x_fixed[, params_to_check(x_fixed)], ask = TRUE)
 
 summary(x_random)
-summary(x_fixed)
+# summary(x_fixed)
+
+gelman_plot_dir <- "04_model_fit/gelman_plots"
+dir.create(gelman_plot_dir, recursive = TRUE, showWarnings = FALSE)
+
+save_gelman_plot <- function(samples, file_name) {
+  file_path <- file.path(gelman_plot_dir, file_name)
+
+  png(file_path, width = 1600, height = 1200, res = 150)
+  on.exit(dev.off(), add = TRUE)
+
+  gelman.plot(
+    samples[, params_to_check(samples)],
+    autoburnin = FALSE,
+    ask = FALSE
+  )
+
+  file_path
+}
+
+save_gelman_plot(x_random, "gelman_random_effects.png")
+
+if (exists("x_fixed")) {
+  save_gelman_plot(x_fixed, "gelman_random_fixed_effects.png")
+}
+
+trace_plot_dir <- "04_model_fit/trace_plots"
+dir.create(trace_plot_dir, recursive = TRUE, showWarnings = FALSE)
+
+save_trace_plot <- function(samples, file_name) {
+  file_path <- file.path(trace_plot_dir, file_name)
+
+  png(file_path, width = 1600, height = 1200, res = 150)
+  on.exit(dev.off(), add = TRUE)
+
+  plot(
+    samples[, params_to_check(samples)],
+    trace = TRUE,
+    ask = FALSE
+  )
+
+  file_path
+}
+
+save_trace_plot(x_random, "trace_random_effects.png")
+
+if (exists("x_fixed")) {
+  save_trace_plot(x_fixed, "trace_random_fixed_effects.png")
+}

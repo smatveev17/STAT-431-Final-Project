@@ -80,13 +80,15 @@ summary(x_fixed)
 ## Eval 1 DIC values
 
 dic.samples(model_random, 10000, type="pD")
-dic.samples(model_fixed, 10000, type="pD")
+# dic.samples(model_fixed, 10000, type="pD")
 
 ## Eval 2: Chi-Square discrepancy
 
-# generate y tilde for a given theta by simulating from the data model (replicate data set)
+# Pearson chi-square discrepancy
+T_obs <- sum((y - n * p_hat)^2 / (n * p_hat * (1 - p_hat)))
+T_rep <- apply(ytilde, 1, function(yrep) {
+  sum((yrep - n * p_hat)^2 / (n * p_hat * (1 - p_hat)))
+})
 
-s <- summary(x_random)
-str(s)
-str(s$statistics)
-s$statistics
+mean(T_rep > T_obs)  # posterior predictive p-value
+
