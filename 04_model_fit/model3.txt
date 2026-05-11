@@ -17,19 +17,21 @@ model {
   # Intercept
   beta[1] ~ dnorm(0, 0.001)
   
-  # Bank levels
-  for (b in 1:B) {
+  # Bank levels (Sum-to-zero, estimate 2 through B)
+  for (b in 2:B) {   
     beta_bank[b] ~ dnorm(0, 0.001)
   }
+  beta_bank[1] <- -sum(beta_bank[2:(B)])
 
-  # State levels
-  for (s in 1:S) {
+  # State levels (Sum-to-zero, estimate 2 through S)
+  for (s in 2:S) {   
     beta_state[s] ~ dnorm(0, 0.001)
   }
+  beta_state[1] <- -sum(beta_state[2:(S)])
 
-  # Sector levels
-  for (k in 1:C) {
-    beta_sector[k] ~ dnorm(0, 0.001)
+  # Sector levels (Sum-to-zero, estimate 2 through C)
+  for (c in 2:C) {    
+    beta_sector[c] ~ dnorm(0, 0.001)
   }
-  
+  beta_sector[1] <- -sum(beta_sector[2:(C)])
 }

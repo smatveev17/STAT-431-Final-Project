@@ -1,7 +1,7 @@
 library(rjags)
 load.module("glm")
 library(tidyverse)
-# setwd("~/Desktop/STAT-431-Final-Project")
+setwd("~/Desktop/STAT-431-Final-Project")
 
 fixed_effect_terms <- c(
   # "NewExist_f", "RevLineCr_f",
@@ -74,10 +74,11 @@ b0 <- qlogis(mean(df_model$PaidInFull))
 
 make_inits <- function(d, b_start, eff_start, seed) {
   list(
-    beta = c(b_start),                    # matches beta[1]
-    beta_bank = rep(eff_start, d$B),      # matches beta_bank[1:B]
-    beta_state = rep(eff_start, d$S),     # matches beta_state[1:S]
-    beta_sector = rep(eff_start, d$C),    # matches beta_sector[1:C]
+    beta = c(b_start),                    
+    # Put NA in the 1st position, and initialize the rest
+    beta_bank = c(NA, rep(eff_start, d$B - 1)),      
+    beta_state = c(NA, rep(eff_start, d$S - 1)),     
+    beta_sector = c(NA, rep(eff_start, d$C - 1)),    
     .RNG.name = "base::Wichmann-Hill",
     .RNG.seed = seed
   )
@@ -109,7 +110,7 @@ system.time({
 })
 
 system.time({
-  x_fixed_only <- coda.samples(
+  x_fixed_only3 <- coda.samples(
     model_fit, 
     variable.names = monitored_params, 
     n.iter = 20000
@@ -117,13 +118,120 @@ system.time({
 })
 
 saveRDS(x_fixed_only, "04_model_fit/saved_samples/x_fixed_only_0510.rds")
+saveRDS(x_fixed_only2, "04_model_fit/saved_samples/x_fixed_only2_0510.rds")
+saveRDS(x_fixed_only3, "04_model_fit/saved_samples/x_fixed_only3_0510.rds")
+
+params_to_check <- function(mcmc_list) {
+  varnames(mcmc_list)[grepl("beta|beta_bank|beta_state|beta_sector", varnames(mcmc_list))]
+}
 
 # get trace plots only
-plot(x_fixed_only[, params_to_check(x_random)], trace = TRUE, ask = TRUE)
+plot(x_fixed_only2[, params_to_check(x_fixed_only2)], trace = TRUE, ask = TRUE)
 
-gelman.diag(x_fixed_only[, params_to_check(x_random)], autoburnin = FALSE, multivariate = FALSE)
+gelman.diag(x_fixed_only2[, params_to_check(x_fixed_only2)], autoburnin = FALSE, multivariate = FALSE)
 
-gelman.plot(x_fixed_only[, params_to_check(x_random)], autoburnin = FALSE, ask = TRUE)
+gelman.plot(x_fixed_only2[, params_to_check(x_fixed_only2)], autoburnin = FALSE, ask = TRUE)
 
 # Autocorrelation check
-autocorr.plot(x_fixed_only[, params_to_check(x_random)], ask = TRUE)
+autocorr.plot(x_fixed_only2[, params_to_check(x_fixed_only2)], ask = TRUE)
+
+# Effective Sample Size
+# Check that Time-series SE is 1/20th or less of the SD (indicating good mixing)
+eff_size <- effectiveSize(x_fixed_only2[, params_to_check(x_fixed_only2)])
+eff_size
+
+# what is the smallest effective sample size among the parameters of interest?
+min(eff_size)
+
+summary <- as_tibble(summary(x_fixed_only3[, params_to_check(x_fixed_only3)]))
+
+
+# Calculate the DIC value
+dic <- dic.samples(model_fit, n.iter = 10000)
+dic
+
+# find the bank, state, and sector that increased and decreased the log odds the most
+
+best_finder <- function(mcmc_list, param_prefix) {
+  param_names <- varnames(mcmc_list)
+  target_params <- param_names[grepl(param_prefix, param_names)]
+  
+  summary_df <- as_tibble(summary(mcmc_list[, target_params])$statistics, rownames = "parameter") %>%
+    mutate(
+      mean = `Mean`,
+      lower = `Mean` - 2 * `SD`,
+      upper = `Mean` + 2 * `SD`
+    ) %>%
+    select(parameter, mean, lower, upper) %>%
+    arrange(desc(mean))
+  
+  summary_df
+}
+
+worst_finder <- function(mcmc_list, param_prefix) {
+  param_names <- varnames(mcmc_list)
+  target_params <- param_names[grepl(param_prefix, param_names)]
+  
+  summary_df <- as_tibble(summary(mcmc_list[, target_params])$statistics, rownames = "parameter") %>%
+    mutate(
+      mean = `Mean`,
+      lower = `Mean` - 2 * `SD`,
+      upper = `Mean` + 2 * `SD`
+    ) %>%
+    select(parameter, mean, lower, upper) %>%
+    arrange(mean)
+  
+  summary_df
+}
+
+best_bank <- best_finder(x_fixed_only3, "beta_bank")
+worst_bank <- worst_finder(x_fixed_only3, "beta_bank")
+
+best_state <- best_finder(x_fixed_only3, "beta_state")
+worst_state <- worst_finder(x_fixed_only3, "beta_state")
+
+best_sector <- best_finder(x_fixed_only3, "beta_sector")
+worst_sector <- worst_finder(x_fixed_only3, "beta_sector")
+
+
+
+# gelman_plot_dir <- "04_model_fit/gelman_plots_fixed_only"
+# dir.create(gelman_plot_dir, recursive = TRUE, showWarnings = FALSE)
+# 
+# save_gelman_plot <- function(samples, file_name) {
+#   file_path <- file.path(gelman_plot_dir, file_name)
+#   
+#   png(file_path, width = 1600, height = 1200, res = 150)
+#   on.exit(dev.off(), add = TRUE)
+#   
+#   gelman.plot(
+#     samples[, params_to_check(samples)],
+#     autoburnin = FALSE,
+#     ask = FALSE
+#   )
+#   
+#   file_path
+# }
+
+# save_gelman_plot(x_fixed_only, "gelman_fixed_only.png")
+# 
+# trace_plot_dir <- "04_model_fit/trace_plots_fixed_only"
+# dir.create(trace_plot_dir, recursive = TRUE, showWarnings = FALSE)
+# 
+# save_trace_plot <- function(samples, file_name) {
+#   file_path <- file.path(trace_plot_dir, file_name)
+#   
+#   png(file_path, width = 1600, height = 1200, res = 150)
+#   on.exit(dev.off(), add = TRUE)
+#   
+#   plot(
+#     samples[, params_to_check(samples)],
+#     trace = TRUE,
+#     ask = FALSE
+#   )
+#   
+#   file_path
+# }
+# 
+# save_trace_plot(x_fixed_only, "trace_fixed_only.png")
+
