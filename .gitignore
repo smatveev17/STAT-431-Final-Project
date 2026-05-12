@@ -5,4 +5,4 @@
 .positai
 misc.R
 .DS_Store
-04_model_fit/saved_samples/x_random_0510.rds
+04_model_fit/saved_samples/*.rds

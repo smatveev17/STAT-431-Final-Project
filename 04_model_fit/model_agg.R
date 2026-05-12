@@ -73,7 +73,8 @@ make_data <- function(df_agg, X = NULL) {
   d
 }
 
-d_random <- make_data(df_agg_random)
+# d_random <- make_data(df_agg_random)
+d_random <- make_data(df_agg_fixed)
 d_fixed <- make_data(df_agg_fixed, X_fixed)
 
 model_data <- list(random = d_random, fixed = d_fixed)
@@ -108,7 +109,6 @@ monitored_params <- c(
   "sigma_bank", "sigma_state", "sigma_sector",
   "tau_sq_bank", "tau_sq_state", "tau_sq_sector",
   "sigma_sq_bank", "sigma_sq_state", "sigma_sq_sector",
-  "ytilde"
 )
 
 system.time({
@@ -130,16 +130,28 @@ system.time({
 })
 
 system.time({
+  x_random <- coda.samples(model_random, variable.names = monitored_params, n.iter = 1000)
+})
+
+system.time({
+  x_fixed <- coda.samples(model_fixed, variable.names = monitored_params, n.iter = 1000)
+})
+
+traceplot(x_fixed) # plot of all chains
+gelman.diag(x_fixed, autoburnin=FALSE) # Gelman-Rubin statistic
+gelman.plot(x_fixed, autoburnin=FALSE) # Gelman-Rubin statistic plot
+
+system.time({
   x_random <- coda.samples(model_random, variable.names = monitored_params, n.iter = 20000)
 })
 
-# system.time({
-#   x_fixed <- coda.samples(model_fixed, variable.names = monitored_params, n.iter = 20000)
-# })
+system.time({
+  x_fixed <- coda.samples(model_fixed, variable.names = monitored_params, n.iter = 20000)
+})
 
 
-saveRDS(x_random, "04_model_fit/saved_samples/x_random_0510.rds")
-# saveRDS(x_fixed, "04_model_fit/saved_samples/x_fixed_0508.rds")
+saveRDS(x_random, "04_model_fit/saved_samples/x_random_0511.rds")
+saveRDS(x_fixed, "04_model_fit/saved_samples/x_fixed_0511.rds")
 
 
 s <- as.tibble(summary(x_random)$statistics, rownames = "parameter")

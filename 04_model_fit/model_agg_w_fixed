@@ -23,9 +23,9 @@ model {
     alpha_sector[c] ~ dnorm(0, tau_sq_sector)
   }
 
-  sigma_bank   ~ dexp(1)
-  sigma_state  ~ dexp(1)
-  sigma_sector ~ dexp(1)
+  sigma_bank   ~ dexp(0.001)
+  sigma_state  ~ dexp(0.001)
+  sigma_sector ~ dexp(0.001)
 
   tau_sq_bank   <- 1 / pow(sigma_bank, 2)
   tau_sq_state  <- 1 / pow(sigma_state, 2)

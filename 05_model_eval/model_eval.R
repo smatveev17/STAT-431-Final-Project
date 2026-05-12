@@ -2,34 +2,32 @@ library(rjags)
 library(tidyverse)
 library(coda)
 
-x_random <- readRDS("04_model_fit/saved_samples/x_random_0508.rds")
-x_fixed <- readRDS("04_model_fit/saved_samples/x_fixed_0508.rds")
+x_random <- readRDS("04_model_fit/saved_samples/x_random_0511.rds")
+x_fixed <- readRDS("04_model_fit/saved_samples/x_fixed_0511.rds")
 
 fixed_effect_terms <- c(
-  "NewExist_f", "UrbanRural_f", "RevLineCr_f",
-  "LowDoc_f", "IsFranchise", "GFC_Period"
+  "GFC_Period", "UrbanRural_f"
 )
 
-data <- read_csv("00_data/sba_clean_50k.csv", show_col_types = FALSE) %>%
-  slice_head(n = 10000)
+data <- read_csv("00_data/cleaned_smaller_subsets/train_50k_subset.csv", show_col_types = FALSE)
 
 bank_groups <- data %>%
   count(Bank, name = "n_loans") %>%
   arrange(desc(n_loans), Bank) %>%
   mutate(
     Bank_group = case_when(
-      row_number() <= 20 ~ 1L,
-      row_number() <= 500 ~ 2L,
-      TRUE ~ 3L
+      row_number() <= 8 ~ row_number(),
+      row_number() <= 40 ~ 9L,
+      TRUE ~ 10L
     )
   ) %>%
   select(Bank, Bank_group)
 
 df_model <- data %>%
-  select(MIS_Status, Bank, State, NAICS_sector, all_of(fixed_effect_terms)) %>%
+  select(PaidInFull, Bank, State, NAICS_sector, all_of(fixed_effect_terms)) %>%
   left_join(bank_groups, by = "Bank") %>%
   transmute(
-    MIS_Status = as.integer(MIS_Status == "CHGOFF"),
+    PaidInFull = as.integer(PaidInFull),
     Bank_group,
     State = as.integer(factor(State)),
     NAICS_sector = as.integer(factor(NAICS_sector)),
@@ -38,7 +36,7 @@ df_model <- data %>%
 
 df_agg_fixed <- df_model %>%
   group_by(Bank_group, State, NAICS_sector, across(all_of(fixed_effect_terms))) %>%
-  summarise(y = sum(MIS_Status), n = n(), .groups = "drop")
+  summarise(y = sum(PaidInFull), n = n(), .groups = "drop")
 
 X_fixed <- model.matrix(reformulate(fixed_effect_terms), data = df_agg_fixed)
 
@@ -62,33 +60,46 @@ fixed_effect_lookup <- tibble(
   )
 )
 
-beta_statistics_fixed <- as_tibble(summary(x_fixed)$statistics, rownames = "parameter")
-beta_quantiles_fixed <- as_tibble(summary(x_fixed)$quantiles, rownames = "parameter")
+posterior_summary <- function(samples) {
+  keep_params <- varnames(samples)[!startsWith(varnames(samples), "ytilde[")]
+  sample_summary <- summary(samples[, keep_params])
 
-beta_summary_fixed <- beta_statistics_fixed %>%
+  as_tibble(sample_summary$statistics, rownames = "parameter") %>%
+    left_join(
+      as_tibble(sample_summary$quantiles, rownames = "parameter"),
+      by = "parameter"
+    )
+}
+
+summary_random <- posterior_summary(x_random)
+summary_fixed <- posterior_summary(x_fixed)
+
+beta_summary_fixed <- summary_fixed %>%
   filter(str_detect(parameter, "^beta(\\[|$)")) %>%
-  left_join(beta_quantiles_fixed, by = "parameter") %>%
   left_join(fixed_effect_lookup, by = "parameter") %>%
   relocate(parameter, term, level, reference_level, model_matrix_column)
+
+write_csv(summary_random, "05_model_eval/summary_random.csv")
+write_csv(summary_fixed, "05_model_eval/summary_fixed.csv")
+write_csv(beta_summary_fixed, "05_model_eval/summary_fixed_betas_labeled.csv")
 
 beta_summary_fixed
 
 plot(x_fixed[, c("beta[1]", "sigma_sq_bank", "sigma_sq_state", "sigma_sq_sector")], ask = TRUE)
 
-summary(x_fixed)
+summary_fixed
 
 ## Eval 1 DIC values
 
 dic.samples(model_random, 10000, type="pD")
-# dic.samples(model_fixed, 10000, type="pD")
+dic.samples(model_fixed, 10000, type="pD")
 
 ## Eval 2: Chi-Square discrepancy
 
 # Pearson chi-square discrepancy
-T_obs <- sum((y - n * p_hat)^2 / (n * p_hat * (1 - p_hat)))
-T_rep <- apply(ytilde, 1, function(yrep) {
-  sum((yrep - n * p_hat)^2 / (n * p_hat * (1 - p_hat)))
-})
-
-mean(T_rep > T_obs)  # posterior predictive p-value
-
+# T_obs <- sum((y - n * p_hat)^2 / (n * p_hat * (1 - p_hat)))
+# T_rep <- apply(ytilde, 1, function(yrep) {
+#   sum((yrep - n * p_hat)^2 / (n * p_hat * (1 - p_hat)))
+# })
+# 
+# mean(T_rep > T_obs)  # posterior predictive p-value

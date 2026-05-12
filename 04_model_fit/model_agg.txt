@@ -2,8 +2,6 @@ model {
   for (i in 1:N) {
     y[i] ~ dbin(p[i], n[i])
     logit(p[i]) <- beta[1] + alpha_bank[bank[i]] + alpha_state[state[i]] + alpha_sector[sector[i]]
-    
-    ytilde[i] ~ dbin(p[i], n[i])
   }
 
   # Priors
